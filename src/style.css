@@ -1,0 +1,56 @@
+:root {
+  --text: #4a3729;
+  --text-h: #2c1f15;
+  --bg: #f5efdf;
+  --border: #c8aa7a;
+  --code-bg: #e8dccc;
+  --accent: #b87c4f;
+  --accent-bg: rgba(184, 124, 79, 0.1);
+  --accent-border: #b87c4f;
+  --social-bg: rgba(200, 170, 122, 0.3);
+  --shadow: rgba(60, 40, 20, 0.2) 0 10px 20px -5px;
+  --sans: '宋体', 'SimSun', 'Georgia', 'Times New Roman', serif;
+  --heading: '宋体', 'SimSun', 'Georgia', serif;
+  --mono: 'Courier New', monospace;
+  font: 18px/145% var(--sans);
+  letter-spacing: 0.5px;
+  color-scheme: light;
+  color: var(--text);
+  background: #e2d5bc;
+}
+
+body {
+  margin: 0;
+  background: #d9cbab;
+  background-image: radial-gradient(circle at 25% 40%, rgba(180, 140, 100, 0.08) 2%, transparent 2.5%);
+  background-size: 28px 28px;
+}
+
+#app {
+  max-width: 100%;
+  margin: 0 auto;
+  min-height: 100svh;
+  background: transparent;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #e8dccc;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb {
+  background: #b87c4f;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #9b623b;
+}
+
+h1, h2 {
+  font-family: var(--heading);
+  font-weight: 500;
+  color: var(--text-h);
+}

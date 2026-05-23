@@ -1,0 +1,24 @@
+{
+  "name": "vue-visualization",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "axios": "^1.15.0",
+    "echarts": "^5.6.0",
+    "echarts-gl": "^2.0.9",
+    "echarts-wordcloud": "^2.1.0",
+    "three": "^0.183.2",
+    "vue": "^3.5.30",
+    "vue-slider-component": "^3.2.24"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^6.0.5",
+    "vite": "^8.0.1"
+  }
+}
