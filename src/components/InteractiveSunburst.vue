@@ -1,15 +1,11 @@
+```vue
 <template>
   <div class="sunburst-wrapper">
     <div class="sunburst-container" ref="chartRef"></div>
-    
-    <!-- 阴影绘制层（基于圆锥投影的科学阴影） -->
     <canvas ref="shadowCanvas" class="shadow-canvas"></canvas>
-    
-    <!-- 时辰提示标签 -->
     <div class="zodiac-tag" v-if="currentZodiac" :class="{ show: zodiacVisible }">
       {{ currentZodiac }} 时
     </div>
-    
     <div class="rotation-buttons">
       <button class="rotate-btn" @click="rotateChart(-30)" title="逆时针旋转（上一时辰）">↺</button>
       <button class="rotate-btn" @click="rotateChart(30)" title="顺时针旋转（下一时辰）">↻</button>
@@ -32,10 +28,9 @@ const chartRef = ref(null)
 const shadowCanvas = ref(null)
 let chartInstance = null
 let resizeObserver = null
-let currentAngle = ref(0)   // 当前旋转角度（度）
+let currentAngle = ref(0)
 
 const zodiacMap = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥']
-
 const showShadow = ref(false)
 const currentZodiac = ref('')
 const zodiacVisible = ref(false)
@@ -43,38 +38,25 @@ let shadowTimer = null
 let zodiacTimer = null
 let animationFrame = null
 
-// --- 世界级古雅配色体系（源自敦煌壁画与宋瓷釉色）---
+// 配色（敦煌 + 宋瓷）
 const themeColors = [
-  '#C77B5B', // 檀色
-  '#6B7B6B', // 黛绿
-  '#B58B5C', // 秋香
-  '#A15A4A', // 朱砂
-  '#8F7B5C', // 驼色
-  '#C49B7A', // 蜜合
-  '#7C5D4A', // 赭石
-  '#5E4A3A'  // 墨褐
+  '#C77B5B', '#6B7B6B', '#B58B5C', '#A15A4A',
+  '#8F7B5C', '#C49B7A', '#7C5D4A', '#5E4A3A'
 ]
 
-// 为各层添加渐变光泽（通过 itemStyle 的 borderRadius 和 shadow 模拟瓷釉质感）
-const getNodeColor = (node, depth, index) => {
-  if (depth === 0) return '#A87B52' // 中心沉稳木色
-  return themeColors[index % themeColors.length]
-}
+const getNodeColor = (node, depth, index) => depth === 0 ? '#A87B52' : themeColors[index % themeColors.length]
 
 const processData = (data, depth = 0, siblingIndex = 0) => {
   const item = { ...data }
   if (!item.itemStyle) item.itemStyle = {}
-  const baseColor = getNodeColor(item, depth, siblingIndex)
-  // 添加细微渐变，提升质感
-  item.itemStyle.color = baseColor
-  // 为子节点增加微光边框
+  item.itemStyle.color = getNodeColor(item, depth, siblingIndex)
   if (depth > 0) {
     item.itemStyle.borderColor = '#F5E6D3'
     item.itemStyle.borderWidth = 1.2
     item.itemStyle.shadowBlur = 6
-    item.itemStyle.shadowColor = 'rgba(80, 50, 30, 0.2)'
+    item.itemStyle.shadowColor = 'rgba(80,50,30,0.2)'
   }
-  if (item.children && item.children.length) {
+  if (item.children?.length) {
     item.children = item.children.map((child, idx) => processData(child, depth + 1, idx))
   }
   return item
@@ -91,6 +73,7 @@ const isDaytime = () => {
   return angle >= 90 && angle <= 270
 }
 
+// 增强版阴影绘制（中心与图表同步下移，半径与旭日图等比例）
 const drawShadow = () => {
   const canvas = shadowCanvas.value
   const container = canvas?.parentElement
@@ -109,14 +92,24 @@ const drawShadow = () => {
   const rawAngle = currentAngle.value
   const angle = ((rawAngle % 360) + 360) % 360
 
+  // 仅当光线角度在 90°~270° 之间才绘制阴影
   if (!(angle >= 90 && angle <= 270)) {
     showShadow.value = false
+    canvas.style.opacity = '0'
     return
   }
 
+  showShadow.value = true
+  canvas.style.opacity = '1'
+
+  // 图表中心默认是 (50%, 50%)，但我们向下微调至 52% 以避免阴影拥挤
+  // 因此阴影中心也应同步下移 2% 高度
+  const centerYOffset = height * 0.02   // 对应图表中心 y 从 50% -> 52%
   const cx = width / 2
-  const cy = height / 2
-  const r = Math.min(width, height) * 0.42
+  const cy = height / 2 + centerYOffset
+
+  // 修改半径与旭日图 95% 半径一致（原为 0.42，现改为 0.475）
+  const r = Math.min(width, height) * 0.475
 
   const azimuthRad = ((angle - 90) * Math.PI) / 180
   let altitude
@@ -140,13 +133,12 @@ const drawShadow = () => {
 
   const p1 = { x: cx + dx1, y: cy + dy1 }
   const p2 = { x: cx + dx2, y: cy + dy2 }
-
   const farX = cx - sunDirX * shadowLength
   const farY = cy - sunDirY * shadowLength
 
   ctx.save()
-  ctx.filter = 'blur(8px)'
-  
+  // 增大模糊半径，让阴影更柔和
+  ctx.filter = 'blur(12px)'
   ctx.beginPath()
   ctx.moveTo(p1.x, p1.y)
   ctx.lineTo(farX, farY)
@@ -158,10 +150,10 @@ const drawShadow = () => {
   if (startAngle > endAngle) endAngle += Math.PI * 2
   ctx.arc(cx, cy, r, startAngle, endAngle)
   ctx.closePath()
-  
-  ctx.fillStyle = 'rgba(70, 45, 30, 0.35)'
+  // 增强阴影浓度
+  ctx.fillStyle = 'rgba(80, 55, 40, 0.45)'
   ctx.fill()
-  
+
   ctx.filter = 'none'
   ctx.beginPath()
   ctx.moveTo(p1.x, p1.y)
@@ -169,13 +161,12 @@ const drawShadow = () => {
   ctx.lineTo(p2.x, p2.y)
   ctx.closePath()
   const gradient = ctx.createLinearGradient(farX, farY, cx, cy)
-  gradient.addColorStop(0, 'rgba(50, 35, 20, 0.5)')
-  gradient.addColorStop(1, 'rgba(50, 35, 20, 0)')
+  gradient.addColorStop(0, 'rgba(60, 40, 25, 0.6)')
+  gradient.addColorStop(1, 'rgba(60, 40, 25, 0)')
   ctx.fillStyle = gradient
   ctx.fill()
-  
   ctx.restore()
-  
+
   ctx.save()
   ctx.globalCompositeOperation = 'destination-out'
   ctx.beginPath()
@@ -183,8 +174,6 @@ const drawShadow = () => {
   ctx.fill()
   ctx.globalCompositeOperation = 'source-over'
   ctx.restore()
-  
-  showShadow.value = true
 }
 
 const refreshShadow = () => {
@@ -202,16 +191,12 @@ const triggerShadowAndZodiac = () => {
   zodiacTimer = setTimeout(() => {
     zodiacVisible.value = false
   }, 1200)
-  
   refreshShadow()
-  
   if (shadowTimer) clearTimeout(shadowTimer)
   const canvasEl = shadowCanvas.value
   if (canvasEl) {
     canvasEl.style.opacity = '0'
-    setTimeout(() => {
-      canvasEl.style.opacity = '1'
-    }, 10)
+    setTimeout(() => { canvasEl.style.opacity = '1' }, 10)
     shadowTimer = setTimeout(() => {
       if (!isDaytime()) canvasEl.style.opacity = '0'
     }, 800)
@@ -221,23 +206,29 @@ const triggerShadowAndZodiac = () => {
 const rotateChart = (delta) => {
   currentAngle.value = (currentAngle.value + delta) % 360
   if (chartInstance) {
-    chartInstance.setOption({
-      series: [{ startAngle: currentAngle.value }]
-    })
+    chartInstance.setOption({ series: [{ startAngle: currentAngle.value }] })
   }
   triggerShadowAndZodiac()
 }
 
-const initChart = () => {
+// 安全初始化图表
+const safeInitChart = (retryCount = 0) => {
   if (!chartRef.value) return
+  const container = chartRef.value
+  const width = container.clientWidth
+  const height = container.clientHeight
+  if (width < 10 || height < 10) {
+    if (retryCount < 20) {
+      setTimeout(() => safeInitChart(retryCount + 1), 100)
+    }
+    return
+  }
   if (chartInstance) chartInstance.dispose()
-  
-  chartInstance = echarts.init(chartRef.value)
+  chartInstance = echarts.init(container)
   const coloredTreeData = processData(props.treeData, 0, 0)
-  
   const option = {
     title: {
-      text: '《营造法式》内容构成',
+      text: '',
       left: 'center',
       top: 10,
       textStyle: {
@@ -251,7 +242,7 @@ const initChart = () => {
     },
     tooltip: {
       trigger: 'item',
-      backgroundColor: 'rgba(40, 28, 20, 0.95)',
+      backgroundColor: 'rgba(40,28,20,0.95)',
       borderColor: '#D4AF7A',
       borderWidth: 1.5,
       textStyle: { color: '#F3E9D2', fontSize: 13 },
@@ -267,22 +258,20 @@ const initChart = () => {
     series: [{
       type: 'sunburst',
       data: [coloredTreeData],
-      radius: [0, '90%'],
-      center: ['50%', '50%'],
+      radius: [0, '95%'],
+      center: ['50%', '52%'],      // 向下微调 2%，避免阴影拥挤
       startAngle: currentAngle.value,
       label: {
         show: true,
         rotate: 'radial',
         align: 'center',
         verticalAlign: 'middle',
-        // 关键：高对比度象牙色 + 深色文字阴影，确保在任何背景下清晰
-        color: '#FDF3E0',
-        fontWeight: '500',
+        color: '#FFE9C7',
+        fontWeight: 'bold',
         fontSize: 13,
         fontFamily: '"Noto Serif SC", "宋体", SimSun, serif',
-        textShadow: '1px 1px 3px #3A2518, 0 0 4px #2E1E12',
+        textShadow: '1px 1px 0px #3A2518, 2px 2px 3px #1A0E06',
         hideOverlap: true,
-        // 防止文字溢出容器
         overflow: 'truncate',
         ellipsis: '..'
       },
@@ -290,19 +279,16 @@ const initChart = () => {
         scale: true,
         label: {
           show: true,
-          fontWeight: '600',
-          fontSize: 14,  // 仅微增字号，避免溢出
-          color: '#FFF8EA',
-          textShadow: '2px 2px 6px #2A1A0E, 0 0 8px #4A2E1A',
-          hideOverlap: true,
-          overflow: 'truncate',
-          ellipsis: '..'
+          fontWeight: 'bold',
+          fontSize: 15,
+          color: '#FFF2CF',
+          textShadow: '2px 2px 0px #3A2518, 3px 3px 5px #1A0E06'
         },
         itemStyle: {
           shadowBlur: 15,
           shadowOffsetX: 3,
           shadowOffsetY: 3,
-          shadowColor: 'rgba(60, 35, 20, 0.5)',
+          shadowColor: 'rgba(60,35,20,0.5)',
           borderColor: '#F7D9A4',
           borderWidth: 2
         }
@@ -314,85 +300,26 @@ const initChart = () => {
         shadowBlur: 6,
         shadowOffsetX: 1,
         shadowOffsetY: 1,
-        shadowColor: 'rgba(50, 30, 15, 0.2)'
+        shadowColor: 'rgba(50,30,15,0.2)'
       },
-      // 层级精细化配置 —— 世界级审美层次感
       levels: [
-        {
-          r0: '0%',
-          r: '15%',
-          itemStyle: { 
-            color: '#A87B52', 
-            borderRadius: 12, 
-            shadowBlur: 12,
-            borderColor: '#D9B382',
-            borderWidth: 2
-          },
-          label: { show: false }
-        },
-        {
-          r0: '15%',
-          r: '45%',
-          label: { 
-            fontSize: 15, 
-            fontWeight: '600', 
-            rotate: 'radial', 
-            color: '#FCF3E0',
-            textShadow: '1px 1px 4px #3D281A'
-          },
-          itemStyle: {
-            borderWidth: 1.5,
-            borderColor: '#E8C9A3'
-          }
-        },
-        {
-          r0: '45%',
-          r: '70%',
-          label: { 
-            fontSize: 13, 
-            fontWeight: '500', 
-            rotate: 'radial', 
-            color: '#FDF0DB',
-            textShadow: '1px 1px 3px #3A2518'
-          },
-          itemStyle: {
-            borderWidth: 1.2,
-            borderColor: '#DFC09E'
-          }
-        },
-        {
-          r0: '70%',
-          r: '88%',
-          label: { 
-            fontSize: 11, 
-            fontWeight: '500', 
-            rotate: 'radial', 
-            color: '#FCEBD6',
-            textShadow: '0.5px 0.5px 2px #3A2518'
-          },
-          itemStyle: {
-            borderWidth: 1,
-            borderColor: '#D4B692'
-          }
-        }
+        { r0: '0%', r: '15%', itemStyle: { color: '#A87B52', borderRadius: 12, shadowBlur: 12, borderColor: '#D9B382', borderWidth: 2 }, label: { show: false } },
+        { r0: '15%', r: '42%', label: { fontSize: 14, fontWeight: 'bold', rotate: 'radial', color: '#FFE9C7', textShadow: '1px 1px 0px #3A2518' }, itemStyle: { borderWidth: 1.5, borderColor: '#E8C9A3' } },
+        { r0: '42%', r: '70%', label: { fontSize: 12, fontWeight: 'bold', rotate: 'radial', color: '#FFE9C7', textShadow: '1px 1px 0px #3A2518' }, itemStyle: { borderWidth: 1.2, borderColor: '#DFC09E' } },
+        { r0: '70%', r: '95%', label: { fontSize: 11, fontWeight: 'bold', rotate: 'radial', color: '#FFE9C7', textShadow: '1px 1px 0px #3A2518' }, itemStyle: { borderWidth: 1, borderColor: '#D4B692' } }
       ],
       nodeClick: false,
       sort: undefined,
-      downplay: { 
-        scale: false,
-        itemStyle: {
-          opacity: 0.7
-        }
-      }
+      downplay: { scale: false, itemStyle: { opacity: 0.7 } }
     }],
-    // 全局背景色微调，与阴影配合
     backgroundColor: 'transparent'
   }
-  
   chartInstance.setOption(option)
   resizeChart()
   triggerShadowAndZodiac()
 }
+
+const initChart = () => safeInitChart(0)
 
 const resizeChart = () => {
   if (chartInstance && chartRef.value) {
@@ -403,26 +330,31 @@ const resizeChart = () => {
 
 const observeResize = () => {
   if (!chartRef.value) return
+  if (resizeObserver) resizeObserver.disconnect()
   resizeObserver = new ResizeObserver(() => resizeChart())
   resizeObserver.observe(chartRef.value)
 }
 
 defineExpose({ resize: resizeChart })
 
-watch(() => props.treeData, () => initChart(), { deep: true })
+watch(() => props.treeData, () => {
+  initChart()
+}, { deep: true })
 
 onMounted(async () => {
   await nextTick()
-  initChart()
-  observeResize()
-  window.addEventListener('resize', refreshShadow)
+  setTimeout(() => {
+    initChart()
+    observeResize()
+  }, 150)
+  window.addEventListener('resize', resizeChart)
 })
 
 onUnmounted(() => {
   if (shadowTimer) clearTimeout(shadowTimer)
   if (zodiacTimer) clearTimeout(zodiacTimer)
   if (animationFrame) cancelAnimationFrame(animationFrame)
-  window.removeEventListener('resize', refreshShadow)
+  window.removeEventListener('resize', resizeChart)
   if (resizeObserver) {
     resizeObserver.disconnect()
     resizeObserver = null
@@ -439,12 +371,16 @@ onUnmounted(() => {
   position: relative;
   width: 100%;
   height: 100%;
-  min-height: 400px;
+  min-height: 500px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
 }
 
 .sunburst-container {
+  flex: 1;
   width: 100%;
-  height: 100%;
+  min-height: 480px;
   padding: 5px;
   box-sizing: border-box;
   position: relative;
@@ -525,5 +461,30 @@ onUnmounted(() => {
   border-color: #F7E5B5;
   color: #FFF8EE;
   box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35);
+}
+
+@media (max-width: 768px) {
+  .sunburst-wrapper {
+    min-height: 400px;
+  }
+  .sunburst-container {
+    min-height: 380px;
+  }
+  .zodiac-tag {
+    bottom: 50px;
+    right: 12px;
+    font-size: 18px;
+    padding: 6px 16px;
+  }
+  .rotation-buttons {
+    bottom: 8px;
+    right: 8px;
+    gap: 10px;
+  }
+  .rotate-btn {
+    width: 40px;
+    height: 40px;
+    font-size: 24px;
+  }
 }
 </style>
