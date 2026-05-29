@@ -2,7 +2,7 @@
   <div class="map-3d-container" :class="{ compact: compact, expanded: expanded }">
     <div ref="chartContainer" class="chart-container"></div>
 
-    <!-- 顶部切换器（仅放大模式下显示，聚类时右移） -->
+    <!-- 顶部切换器（仅放大模式显示，聚类时右移） -->
     <div v-if="expanded" class="view-switcher" :class="{ 'switcher-right': clusterMode }">
       <div class="switcher-inner">
         <button :class="['switcher-btn', { active: !clusterMode }]" @click="setViewMode('dynasty')">
@@ -15,7 +15,7 @@
       </div>
     </div>
 
-    <!-- 左侧朝代按钮列（仅在非聚类模式下显示） -->
+    <!-- 左侧朝代按钮列 -->
     <div v-if="!clusterMode" class="period-left">
       <button v-for="(label, idx) in leftPeriodLabels" :key="idx"
         :class="['period-btn', { active: selectedCode === idx }]" @click="selectPeriod(idx)">
@@ -23,7 +23,7 @@
       </button>
     </div>
 
-    <!-- 右侧朝代按钮列（仅在非聚类模式下显示） -->
+    <!-- 右侧朝代按钮列 -->
     <div v-if="!clusterMode" class="period-right">
       <button v-for="(label, idx) in rightPeriodLabels" :key="idx + 11"
         :class="['period-btn', { active: selectedCode === idx + 11 }]" @click="selectPeriod(idx + 11)">
@@ -31,7 +31,7 @@
       </button>
     </div>
 
-    <!-- 紧凑模式下的聚类切换按钮（右下角） -->
+    <!-- 紧凑模式下的聚类切换按钮 -->
     <button v-if="!expanded" class="cluster-mode-btn" :class="{ active: clusterMode }" @click="toggleClusterMode">
       <span class="cluster-icon">◉</span>
       <span v-if="!compact">{{ clusterMode ? '朝代视图' : '聚类视图' }}</span>
@@ -43,24 +43,57 @@
       <span v-if="!compact">重置视角</span>
     </button>
 
-    <!-- 聚类图例 + 下拉选择（仅聚类模式） -->
-    <transition name="legend-fade">
-      <div v-show="clusterMode" class="cluster-legend-horizontal">
-        <div v-for="(color, name) in clusterColorMap" :key="name" class="legend-horizontal-item">
-          <span class="legend-color-box" :style="{ backgroundColor: color }"></span>
-          <span class="legend-text">{{ name }}</span>
-        </div>
-        <div class="cluster-selector-inline">
-          <span>当前聚类：</span>
-          <select v-model="selectedEvolutionCluster" @change="onClusterChange">
-            <option v-for="name in clusterNames" :key="name" :value="name">{{ name === '__ALL__' ? '全部聚类' : name }}</option>
-          </select>
-        </div>
-        <button class="trend-btn-inline" @click="showEvolutionModal = true">
-          <img src="./images/ico/分析.png" alt="演化分析" class="trend-icon" />
-        </button>
+    <!-- ========= 聚类图例 ========= -->
+    <template v-if="clusterMode">
+      <!-- 紧凑模式：点击整个图例框即可收起 -->
+      <div v-if="compact" class="cluster-legend-compact" :class="{ folded: compactLegendFolded }">
+        <transition name="legend-fold" mode="out-in">
+          <div v-if="!compactLegendFolded" key="legend" class="legend-fold-content" @click="compactLegendFolded = true" title="点击收起图例">
+            <div class="legend-items-grid">
+              <div v-for="(color, name) in clusterColorMap" :key="name" class="legend-item">
+                <span class="legend-color-box" :style="{ backgroundColor: color }"></span>
+                <span class="legend-text">{{ name }}</span>
+              </div>
+            </div>
+          </div>
+          <div v-else key="icon" class="legend-fold-icon-only" @click="compactLegendFolded = false">
+            <img :src="copperCoinIcon" alt="展开图例" class="coin-icon-standalone" />
+          </div>
+        </transition>
       </div>
-    </transition>
+
+      <!-- 放大模式：原样保留（含演化分析按钮） -->
+      <transition name="legend-fade" v-else>
+        <div v-if="!legendCollapsed" class="cluster-legend-expanded">
+          <button class="legend-collapse-btn" @click="legendCollapsed = true" title="收起图例">
+            <span>▲</span>
+          </button>
+          <div class="legend-items-row">
+            <div v-for="(color, name) in clusterColorMap" :key="name" class="legend-item">
+              <span class="legend-color-box" :style="{ backgroundColor: color }"></span>
+              <span class="legend-text">{{ name }}</span>
+            </div>
+          </div>
+          <div class="legend-controls-row">
+            <div class="cluster-selector-inline">
+              <span>当前聚类：</span>
+              <select v-model="selectedEvolutionCluster" @change="onClusterChange">
+                <option v-for="name in clusterNames" :key="name" :value="name">
+                  {{ name === '__ALL__' ? '全部聚类' : name }}
+                </option>
+              </select>
+            </div>
+            <button class="trend-btn-expanded" @click="showEvolutionModal = true">
+              <img src="./images/ico/分析.png" alt="演化分析" class="trend-icon" />
+            </button>
+          </div>
+        </div>
+        <button v-else class="legend-collapsed-btn" @click="legendCollapsed = false" title="展开图例">
+          <span class="collapsed-icon">◉</span>
+          <span class="collapsed-text">聚类</span>
+        </button>
+      </transition>
+    </template>
 
     <!-- 演化分析模态框 -->
     <div v-if="showEvolutionModal" class="evolution-modal" @click.self="showEvolutionModal = false">
@@ -79,17 +112,17 @@
     <!-- 审图号 -->
     <div class="map-attribution">GS(2019)1822号</div>
 
-    <!-- 省份统计提示浮层 -->
+    <!-- 省份统计浮层 -->
     <div v-if="provinceTipVisible" class="province-tip" :style="provinceTipStyle">
       <div class="tip-header">{{ provinceTipData.name }}</div>
       <div class="tip-content">
-        <span class="tip-label">{{ clusterMode ? '聚类模式 · 文保总数' : currentPeriodLabel + ' · 文保数量' }}</span>
+        <span class="tip-label">{{ clusterMode ? '聚类模式 - 文保总数' : currentPeriodLabel + ' - 文保数量' }}</span>
         <span class="tip-value">{{ provinceTipData.count }}</span>
       </div>
       <div class="tip-close" @click.stop="provinceTipVisible = false">✕</div>
     </div>
 
-    <!-- 自定义文物详情浮层 -->
+    <!-- 文物详情浮层 -->
     <div v-if="heritageTipVisible" class="heritage-tip" :style="heritageTipStyle">
       <div class="tip-header">{{ heritageTipData.name }}</div>
       <div class="tip-content">
@@ -112,6 +145,7 @@ import chinaJson from './js/china.json'
 import buildingIcon from './images/ico/建筑.png'
 import timeIcon from './images/ico/时间周期.png'
 import locationIcon from './images/ico/定位.png'
+import copperCoinIcon from './images/ico/古风物件，中国风，铜钱，圆形方孔钱2.png'
 
 const props = defineProps({
   apiBaseUrl: { type: String, default: '/api' },
@@ -157,6 +191,9 @@ const selectedEvolutionCluster = ref('__ALL__')
 const clusterNames = ref([])
 const clusterColorMap = ref({})
 const getClusterColor = (clusterName) => clusterColorMap.value[clusterName] || '#888888'
+
+const legendCollapsed = ref(false)
+const compactLegendFolded = ref(false)
 
 const provinceNameMap = new Map([
   ['北京市', '北京'], ['天津市', '天津'], ['上海市', '上海'], ['重庆市', '重庆'],
@@ -247,7 +284,6 @@ const cleanPoint = (p) => {
   return { ...p, name: p.name || '未命名文物', period: p.period || '年代未知', province: p.province || '未知省份', lng: numLng, lat: numLat }
 }
 
-// ---------- 聚类高亮 ----------
 const updateClusterHighlight = () => {
   if (!chart || chart.isDisposed?.() || !clusterMode.value) return
   const selectedCluster = selectedEvolutionCluster.value
@@ -279,8 +315,6 @@ const onClusterChange = () => {
   updateClusterHighlight()
 }
 
-// ---------- 朝代数据加载（外环+内点）----------
-// 🔧 修改点：外圈添加 silent: true，内圈启用 hoverAnimation 和 emphasis
 const fetchAndRender = async (periodName) => {
   if (!chart || chart.isDisposed?.()) return
   loading.value = true
@@ -305,11 +339,7 @@ const fetchAndRender = async (periodName) => {
     const outerData = points.map(p => ({
       name: p.name,
       value: [p.lng, p.lat, 0],
-      itemStyle: {
-        color: '#FFFFFF',
-        opacity: 0.9,
-        borderWidth: 0
-      }
+      itemStyle: { color: '#FFFFFF', opacity: 0.9, borderWidth: 0 }
     }))
 
     const innerData = points.map(p => ({
@@ -317,38 +347,22 @@ const fetchAndRender = async (periodName) => {
       period: p.period,
       province: p.province,
       value: [p.lng, p.lat, 0],
-      itemStyle: {
-        color: color,
-        opacity: 0.9,
-        borderWidth: 1.2,
-        borderColor: '#FFFFFF'
-      }
+      itemStyle: { color: color, opacity: 0.9, borderWidth: 1.2, borderColor: '#FFFFFF' }
     }))
 
     chart.setOption({
       series: [
         {
-          type: 'scatter3D',
-          coordinateSystem: 'geo3D',
-          data: outerData,
-          symbolSize: 20,
-          hoverAnimation: false,
-          tooltip: { show: false },
+          type: 'scatter3D', coordinateSystem: 'geo3D', data: outerData,
+          symbolSize: 20, hoverAnimation: false, tooltip: { show: false },
           itemStyle: { color: '#FFFFFF', borderWidth: 0, opacity: 1 },
-          label: { show: false },
-          emphasis: { scale: false },
-          silent: true   // 🔧 外圈不响应鼠标，悬浮穿透到内圈
+          label: { show: false }, emphasis: { scale: false }, silent: true
         },
         {
-          type: 'scatter3D',
-          coordinateSystem: 'geo3D',
-          data: innerData,
-          symbolSize: 16,
-          hoverAnimation: true,   // 🔧 启用悬浮动画
-          tooltip: { show: true },
+          type: 'scatter3D', coordinateSystem: 'geo3D', data: innerData,
+          symbolSize: 16, hoverAnimation: true, tooltip: { show: true },
           itemStyle: { borderWidth: 1.2, borderColor: '#FFFFFF' },
-          label: { show: false },
-          emphasis: { scale: true, label: { show: false } }  // 🔧 悬浮时轻微放大
+          label: { show: false }, emphasis: { scale: true, label: { show: false } }
         }
       ]
     }, { replaceMerge: ['series'] })
@@ -362,7 +376,6 @@ const fetchAndRender = async (periodName) => {
   }
 }
 
-// ---------- 聚类数据加载 ----------
 const loadEnhancedClusterData = async () => {
   if (!chart || chart.isDisposed?.()) return
   if (cachedClusterPoints) {
@@ -399,32 +412,18 @@ const renderEnhancedClusterPoints = (points) => {
   })
 
   const innerData = sampled.map(p => ({
-    name: p.name,
-    period: p.period,
-    province: p.province,
+    name: p.name, period: p.period, province: p.province,
     value: [p.lng, p.lat, 0],
-    itemStyle: {
-      color: getClusterColor(p.clusterName),
-      opacity: 0.8,
-      borderWidth: 0
-    },
+    itemStyle: { color: getClusterColor(p.clusterName), opacity: 0.8, borderWidth: 0 },
     clusterName: p.clusterName
   }))
 
   chart.setOption({
-    series: [
-      {
-        type: 'scatter3D',
-        coordinateSystem: 'geo3D',
-        data: innerData,
-        symbolSize: 16,
-        hoverAnimation: true,
-        tooltip: { show: true },
-        itemStyle: { borderWidth: 0 },
-        label: { show: false },
-        emphasis: { scale: true }
-      }
-    ]
+    series: [{
+      type: 'scatter3D', coordinateSystem: 'geo3D', data: innerData,
+      symbolSize: 16, hoverAnimation: true, tooltip: { show: true },
+      itemStyle: { borderWidth: 0 }, label: { show: false }, emphasis: { scale: true }
+    }]
   }, { replaceMerge: ['series'] })
   updatePointVisuals(lastDistance.value)
 }
@@ -483,11 +482,12 @@ watch(showEvolutionModal, async (val) => {
   }
 })
 
-// 视图切换
 const setViewMode = async (mode) => {
   const enableCluster = mode === 'cluster'
   if (clusterMode.value === enableCluster) return
   clusterMode.value = enableCluster
+  legendCollapsed.value = false
+  compactLegendFolded.value = false
   if (enableCluster) {
     await loadEnhancedClusterData()
     await nextTick()
@@ -508,11 +508,7 @@ const resetView = () => {
   if (!chart || chart.isDisposed?.()) return
   chart.setOption({
     geo3D: {
-      viewControl: {
-        distance: INIT_VIEW.distance,
-        alpha: INIT_VIEW.alpha,
-        beta: INIT_VIEW.beta
-      }
+      viewControl: { distance: INIT_VIEW.distance, alpha: INIT_VIEW.alpha, beta: INIT_VIEW.beta }
     }
   })
   if (clusterMode.value) {
@@ -521,33 +517,23 @@ const resetView = () => {
   }
 }
 
-// ---------- 坐标查找（保留用于点击兼容）----------
 const findNearestPoint = (clickPos) => {
   if (!chart || chart.isDisposed?.() || !currentPointsData.value.length) return null
-  let clickX = clickPos.offsetX
-  let clickY = clickPos.offsetY
+  let clickX = clickPos.offsetX, clickY = clickPos.offsetY
   if (clickX === undefined || clickY === undefined) {
     const rect = chartContainer.value?.getBoundingClientRect()
-    if (rect) {
-      clickX = clickPos.clientX - rect.left
-      clickY = clickPos.clientY - rect.top
-    }
+    if (rect) { clickX = clickPos.clientX - rect.left; clickY = clickPos.clientY - rect.top }
   }
   if (clickX === undefined || clickY === undefined) return null
-
   const PICK_THRESHOLD = 40
   let minDist = Infinity, nearestPoint = null
   const targetSeriesIndex = clusterMode.value ? 0 : 1
   for (const point of currentPointsData.value) {
     const screenCoord = chart.convertToPixel({ seriesIndex: targetSeriesIndex }, [point.lng, point.lat, 0])
     if (!screenCoord) continue
-    const dx = screenCoord[0] - clickX
-    const dy = screenCoord[1] - clickY
+    const dx = screenCoord[0] - clickX, dy = screenCoord[1] - clickY
     const dist = Math.sqrt(dx*dx + dy*dy)
-    if (dist < minDist) {
-      minDist = dist
-      nearestPoint = point
-    }
+    if (dist < minDist) { minDist = dist; nearestPoint = point }
   }
   return minDist <= PICK_THRESHOLD ? nearestPoint : null
 }
@@ -585,7 +571,6 @@ const handleProvinceClick = (provinceName, eventPos) => {
   setTimeout(() => provinceTipVisible.value = false, 5000)
 }
 
-// ---------- 初始化ECharts地图 ----------
 const initChart = () => {
   if (!chartContainer.value || isChartInitialized) return
   if (chartContainer.value.clientWidth === 0 || chartContainer.value.clientHeight === 0) {
@@ -602,8 +587,7 @@ const initChart = () => {
   const baseOption = {
     title: { text: '', left: 'center', top: 8, textStyle: { color: '#5C3E2B', fontSize: 14, fontFamily: '宋体', fontWeight: 'bold' } },
     tooltip: {
-      trigger: 'item',
-      triggerOn: 'mousemove',   // 🔧 改为纯悬浮触发，无需点击
+      trigger: 'item', triggerOn: 'mousemove',
       formatter: (params) => {
         if (params.seriesType === 'scatter3D' && params.data) {
           const data = params.data
@@ -616,98 +600,46 @@ const initChart = () => {
         }
         return null
       },
-      backgroundColor: 'rgba(40,28,20,0.92)',
-      borderColor: '#D4B886',
-      borderWidth: 1,
-      textStyle: { color: '#F8F2E4', fontSize: 12 },
-      borderRadius: 6,
-      extraCssText: 'pointer-events: auto;'
+      backgroundColor: 'rgba(40,28,20,0.92)', borderColor: '#D4B886', borderWidth: 1,
+      textStyle: { color: '#F8F2E4', fontSize: 12 }, borderRadius: 6, extraCssText: 'pointer-events: auto;'
     },
     geo3D: {
-      map: 'china',
-      shading: 'lambert',
-      realisticMaterial: { roughness: 0.6, metalness: 0.1 },
-      label: {
-        show: true,
-        color: '#4A3520',
-        fontSize: 10,
-        fontFamily: '宋体',
-        distance: 12,
-        formatter: (p) => p.name.length > 6 ? p.name.slice(0, 5) + '·' : p.name
-      },
-      itemStyle: {
-        areaColor: '#DCC8A8',
-        borderColor: '#B89A6E',
-        borderWidth: 0.8,
-        opacity: 0.95
-      },
-      emphasis: {
-        label: { show: true, color: '#FFF2CC' },
-        itemStyle: { areaColor: '#D19B64' }
-      },
-      light: {
-        main: { intensity: 1.2, shadow: false },
-        ambient: { intensity: 0.7 }
-      },
+      map: 'china', shading: 'lambert', realisticMaterial: { roughness: 0.6, metalness: 0.1 },
+      label: { show: true, color: '#4A3520', fontSize: 10, fontFamily: '宋体', distance: 12, formatter: (p) => p.name.length > 6 ? p.name.slice(0,5)+'-' : p.name },
+      itemStyle: { areaColor: '#DCC8A8', borderColor: '#B89A6E', borderWidth: 0.8, opacity: 0.95 },
+      emphasis: { label: { show: true, color: '#FFF2CC' }, itemStyle: { areaColor: '#D19B64' } },
+      light: { main: { intensity: 1.2, shadow: false }, ambient: { intensity: 0.7 } },
       viewControl: {
-        distance: INIT_VIEW.distance,
-        alpha: INIT_VIEW.alpha,
-        beta: INIT_VIEW.beta,
-        minDistance: 40,
-        maxDistance: 200,
-        animation: false,
-        rotateSensitivity: 0.5,
-        zoomSensitivity: 0.6,
-        panSensitivity: 0.4
+        distance: INIT_VIEW.distance, alpha: INIT_VIEW.alpha, beta: INIT_VIEW.beta,
+        minDistance: 40, maxDistance: 200, animation: false, rotateSensitivity: 0.5, zoomSensitivity: 0.6, panSensitivity: 0.4
       },
-      postEffect: { enable: false },
-      temporalSuperSampling: { enable: false }
+      postEffect: { enable: false }, temporalSuperSampling: { enable: false }
     },
     backgroundColor: '#F8F2E4',
-    series: [
-      {
-        type: 'scatter3D',
-        coordinateSystem: 'geo3D',
-        data: [],
-        symbolSize: 16,
-        hoverAnimation: true,
-        tooltip: { show: true },
-        itemStyle: { borderWidth: 0 },
-        label: { show: false },
-        emphasis: { scale: true }
-      }
-    ]
+    series: [{
+      type: 'scatter3D', coordinateSystem: 'geo3D', data: [],
+      symbolSize: 16, hoverAnimation: true, tooltip: { show: true },
+      itemStyle: { borderWidth: 0 }, label: { show: false }, emphasis: { scale: true }
+    }]
   }
 
   chart.setOption(baseOption)
   chart.on('camera', handleCamera)
-  setTimeout(() => {
-    if (chart && !chart.isDisposed?.()) updatePointVisuals(INIT_VIEW.distance)
-  }, 50)
+  setTimeout(() => { if (chart && !chart.isDisposed?.()) updatePointVisuals(INIT_VIEW.distance) }, 50)
 
-  // 保留点击事件用于省份和文物详情（悬浮已经由 tooltip 负责，点击作为补充）
   chart.on('click', (params) => {
-    // 1. 点击散点（内圈）—— 如果 tooltip 已显示，这里可额外控制自定义浮层，但为避免重复，可以只显示浮层
-    const scatterSeriesIndex = clusterMode.value ? 0 : 1
     if (params.seriesType === 'scatter3D' && params.data) {
       showHeritageTip(params.data, params.event?.event)
       return
     }
-
-    // 2. 点击空白区域，查找最近点
     if (params.event && (params.event.offsetX !== undefined || params.event.clientX)) {
       let clientX = params.event.clientX || (params.event.touches && params.event.touches[0]?.clientX)
       let clientY = params.event.clientY || (params.event.touches && params.event.touches[0]?.clientY)
       if (clientX && clientY) {
         const nearest = findNearestPoint({ clientX, clientY })
-        if (nearest) {
-          showHeritageTip(nearest, { clientX, clientY })
-          return
-        }
+        if (nearest) { showHeritageTip(nearest, { clientX, clientY }); return }
       }
     }
-
-    // 3. 点击省份区域
     if (params.componentType === 'geo3D' && params.region) {
       const rawName = params.region
       const provinceName = provinceNameMap.get(rawName) || rawName.replace(/省|市|自治区|特别行政区|壮族|回族|维吾尔|自治区/g, '')
@@ -722,16 +654,12 @@ let resizeTimer = null
 const setupResizeObserver = () => {
   if (!chartContainer.value) return
   if (window.ResizeObserver) {
-    resizeObserver = new ResizeObserver(() => {
-      if (chart && !chart.isDisposed?.()) chart.resize()
-    })
+    resizeObserver = new ResizeObserver(() => { if (chart && !chart.isDisposed?.()) chart.resize() })
     resizeObserver.observe(chartContainer.value)
   } else {
     window.addEventListener('resize', () => {
       if (resizeTimer) clearTimeout(resizeTimer)
-      resizeTimer = setTimeout(() => {
-        if (chart && !chart.isDisposed?.()) chart.resize()
-      }, 150)
+      resizeTimer = setTimeout(() => { if (chart && !chart.isDisposed?.()) chart.resize() }, 150)
     })
   }
 }
@@ -763,15 +691,19 @@ const sliderStyle = computed(() => {
 </script>
 
 <style scoped>
-/* 原有样式保持不变（下方完整保留） */
+/* 基础容器 */
 .map-3d-container { width: 100%; height: 100%; position: relative; background: #F8F2E4; border-radius: 8px; overflow: hidden; }
 .chart-container { width: 100%; height: 100%; background: #F8F2E4; }
+
+/* 顶部切换器 */
 .view-switcher { position: absolute; top: 12px; left: 0; right: 0; display: flex; justify-content: center; z-index: 35; pointer-events: none; transition: justify-content 0.2s ease; }
 .view-switcher.switcher-right { justify-content: flex-end; padding-right: 20px; }
 .switcher-inner { position: relative; background: rgba(40,28,20,0.75); backdrop-filter: blur(12px); border-radius: 48px; padding: 4px; display: flex; gap: 4px; border: 1px solid rgba(212,184,134,0.6); box-shadow: 0 2px 10px rgba(0,0,0,0.2); pointer-events: auto; }
 .switcher-btn { background: transparent; border: none; padding: 6px 24px; border-radius: 40px; font-size: 14px; font-family: '宋体', SimSun, serif; color: #F8EAD5; cursor: pointer; transition: all 0.2s ease; position: relative; z-index: 2; letter-spacing: 2px; }
 .switcher-btn.active { color: #2C1E14; font-weight: bold; }
 .switcher-slider { position: absolute; top: 4px; bottom: 4px; width: calc(50% - 4px); background: #E88C3A; border-radius: 40px; transition: transform 0.3s cubic-bezier(0.2,0.9,0.4,1.1); z-index: 1; }
+
+/* 朝代按钮列 */
 .period-left, .period-right { position: absolute; top: 70px; display: flex; flex-direction: column; gap: 6px; z-index: 30; pointer-events: none; }
 .period-left { left: 10px; width: 90px; }
 .period-right { right: 10px; width: 100px; }
@@ -779,56 +711,295 @@ const sliderStyle = computed(() => {
 .period-btn { background: rgba(92,62,43,0.75); backdrop-filter: blur(4px); border: none; color: #F8EAD5; font-size: 12px; font-family: '宋体', SimSun, serif; padding: 6px 4px; border-radius: 20px; cursor: pointer; text-align: center; white-space: nowrap; box-shadow: 0 2px 6px rgba(0,0,0,0.2); width: 100%; }
 .period-btn:hover { background: rgba(122,90,66,0.9); }
 .period-btn.active { background: #E88C3A; color: #2C1E14; font-weight: bold; }
+
+/* 聚类切换按钮 */
 .cluster-mode-btn { position: absolute; bottom: 45px; right: 12px; background: rgba(92,62,43,0.85); backdrop-filter: blur(4px); border: none; color: #F8EAD5; padding: 6px 10px; border-radius: 24px; font-size: 10px; font-family: '宋体', SimSun, serif; cursor: pointer; display: flex; align-items: center; gap: 4px; z-index: 30; box-shadow: 0 2px 6px rgba(0,0,0,0.2); }
 .cluster-mode-btn.active { background: #E88C3A; color: #2C1E14; font-weight: bold; }
+
+/* 重置视角按钮 */
 .reset-view-btn { position: absolute; bottom: 20px; right: 20px; background: rgba(166,124,82,0.8); backdrop-filter: blur(4px); border: none; color: #f8f2e4; padding: 8px 16px; border-radius: 30px; font-size: 13px; font-family: '宋体', SimSun, serif; cursor: pointer; display: flex; align-items: center; gap: 6px; z-index: 30; box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
 .reset-view-btn:hover { background: rgba(139,110,70,0.9); }
-.cluster-legend-horizontal { position: absolute; background: rgba(35,25,18,0.85); backdrop-filter: blur(12px); border-radius: 32px; padding: 6px 16px; display: flex; flex-wrap: wrap; align-items: center; gap: 16px; z-index: 40; border: 1px solid rgba(212,184,134,0.5); pointer-events: auto; }
-.expanded .cluster-legend-horizontal { top: 12px; left: 8px; }
-.compact .cluster-legend-horizontal { background: rgba(30,22,16,0.85); backdrop-filter: blur(8px); border: 1px solid rgba(212,184,134,0.6); border-radius: 24px; padding: 4px 12px; gap: 8px; top: 4px; left: 4px; transform: scale(0.95); transform-origin: left top; }
-.compact .legend-horizontal-item { font-size: 10px; gap: 4px; }
-.compact .legend-color-box { width: 10px; height: 10px; }
-.compact .cluster-selector-inline { padding: 2px 8px; font-size: 10px; gap: 4px; background: rgba(0,0,0,0.5); }
-.compact .cluster-selector-inline select { font-size: 10px; padding: 2px 4px; }
-.compact .trend-btn-inline { padding: 4px 8px; }
-.compact .trend-icon { width: 16px; height: 16px; }
-.legend-horizontal-item { display: flex; align-items: center; gap: 6px; font-size: 12px; font-family: '宋体', SimSun, serif; color: #FDF0DC; white-space: nowrap; }
-.legend-color-box { width: 14px; height: 14px; border-radius: 3px; box-shadow: inset 0 1px 0 rgba(255,255,255,0.2), 0 1px 1px rgba(0,0,0,0.2); }
-.cluster-selector-inline { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #FDF0DC; background: rgba(0,0,0,0.3); padding: 4px 12px; border-radius: 24px; }
-.cluster-selector-inline select { background: #2E241E; color: #FDF0DC; border: 1px solid #B89A6E; border-radius: 20px; padding: 4px 8px; font-size: 12px; font-family: monospace; cursor: pointer; }
-.trend-btn-inline { background: #A67C52; border: none; border-radius: 24px; padding: 6px 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.2s; }
-.trend-btn-inline:hover { background: #C48A5C; }
-.trend-icon { width: 20px; height: 20px; display: block; }
-.evolution-modal { position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.6); z-index: 2000; display: flex; align-items: center; justify-content: center; }
-.evolution-modal-content { background: #FEF8EF; border-radius: 16px; width: 80%; height: 70%; display: flex; flex-direction: column; border: 1px solid #C8AA7A; }
-.evolution-header { background: #8B6E46; padding: 12px 20px; border-radius: 16px 16px 0 0; display: flex; justify-content: space-between; color: white; font-weight: bold; }
+
+/* ========= 紧凑模式图例（点击整体收起） ========= */
+.compact .cluster-legend-compact {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 40;
+  pointer-events: auto;
+  max-width: calc(100% - 16px);
+}
+.compact .legend-fold-content {
+  display: flex;
+  align-items: flex-start;
+  background: rgba(30, 22, 16, 0.65);
+  backdrop-filter: blur(4px);
+  border-radius: 24px;
+  padding: 6px 12px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.compact .legend-fold-content:hover {
+  background: rgba(40, 30, 22, 0.75);
+}
+.compact .legend-items-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 6px 12px;
+  flex: 1;
+}
+.compact .legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-family: '宋体', SimSun, serif;
+  color: #FDF0DC;
+  white-space: nowrap;
+}
+.compact .legend-color-box {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.2), 0 1px 1px rgba(0,0,0,0.2);
+}
+/* 铜钱单独图标 */
+.compact .legend-fold-icon-only {
+  background: rgba(30, 22, 16, 0.65);
+  backdrop-filter: blur(4px);
+  border-radius: 50%;
+  padding: 8px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+.compact .legend-fold-icon-only:hover {
+  transform: scale(1.1) rotate(15deg);
+  box-shadow: 0 4px 14px rgba(0,0,0,0.4);
+}
+.compact .coin-icon-standalone {
+  width: 28px;
+  height: 28px;
+  display: block;
+  transition: transform 0.25s ease;
+}
+.compact .legend-fold-icon-only:active .coin-icon-standalone {
+  transform: scale(0.9);
+}
+/* 紧凑折叠动画 */
+.compact .legend-fold-enter-active,
+.compact .legend-fold-leave-active {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.compact .legend-fold-enter-from {
+  opacity: 0;
+  transform: scale(0.9);
+}
+.compact .legend-fold-leave-to {
+  opacity: 0;
+  transform: scale(0.9);
+}
+
+/* ========= 放大模式图例（保持不变） ========= */
+.cluster-legend-expanded {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  background: rgba(35, 25, 18, 0.85);
+  backdrop-filter: blur(12px);
+  border-radius: 20px;
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  z-index: 40;
+  border: 1px solid rgba(212,184,134,0.5);
+  pointer-events: auto;
+  min-width: 220px;
+  max-width: 360px;
+}
+.legend-collapse-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: rgba(255,255,255,0.1);
+  border: 1px solid rgba(212,184,134,0.4);
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #E0D0B0;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background 0.2s;
+  padding: 0;
+}
+.legend-collapse-btn:hover {
+  background: rgba(255,255,255,0.2);
+}
+.legend-items-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  align-items: center;
+}
+.legend-items-row .legend-item {
+  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #FDF0DC;
+  font-family: '宋体', SimSun, serif;
+}
+.legend-items-row .legend-color-box {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.2), 0 1px 1px rgba(0,0,0,0.2);
+}
+.legend-controls-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  justify-content: space-between;
+  border-top: 1px solid rgba(212,184,134,0.4);
+  padding-top: 8px;
+  margin-top: 2px;
+}
+.cluster-selector-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #FDF0DC;
+  background: rgba(0,0,0,0.3);
+  padding: 4px 12px;
+  border-radius: 24px;
+  flex: 1;
+  justify-content: space-between;
+}
+.cluster-selector-inline select {
+  background: #2E241E;
+  color: #FDF0DC;
+  border: 1px solid #B89A6E;
+  border-radius: 20px;
+  padding: 4px 8px;
+  font-size: 12px;
+  font-family: monospace;
+  cursor: pointer;
+}
+.trend-btn-expanded {
+  background: #A67C52;
+  border: none;
+  border-radius: 24px;
+  padding: 6px 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+.trend-btn-expanded:hover {
+  background: #C48A5C;
+}
+.legend-collapsed-btn {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  background: rgba(35, 25, 18, 0.85);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(212,184,134,0.5);
+  border-radius: 48px;
+  padding: 8px 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #FDF0DC;
+  font-family: '宋体', SimSun, serif;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.2s;
+  z-index: 40;
+  pointer-events: auto;
+}
+.legend-collapsed-btn:hover {
+  background: rgba(60, 40, 28, 0.9);
+}
+.collapsed-icon { font-size: 18px; }
+.collapsed-text { letter-spacing: 2px; }
+.trend-icon { width: 18px; height: 18px; display: block; }
+
+/* 演化分析模态框 */
+.evolution-modal {
+  position: fixed; top:0; left:0; width:100%; height:100%;
+  background: rgba(0,0,0,0.6); z-index: 2000;
+  display: flex; align-items: center; justify-content: center;
+}
+.evolution-modal-content {
+  background: #FEF8EF; border-radius: 16px; width: 80%; height: 70%;
+  display: flex; flex-direction: column; border: 1px solid #C8AA7A;
+}
+.evolution-header {
+  background: #8B6E46; padding: 12px 20px; border-radius: 16px 16px 0 0;
+  display: flex; justify-content: space-between; color: white; font-weight: bold;
+}
 .evolution-header .close { font-size: 24px; cursor: pointer; line-height: 1; }
 .evolution-body { flex:1; padding: 16px; display: flex; flex-direction: column; overflow: auto; }
 .evolution-chart { flex:1; min-height: 0; width: 100%; }
 .data-note { margin-top: 12px; text-align: center; font-size: 12px; color: #8B6E46; }
-.province-tip, .heritage-tip { position: fixed; background: rgba(40,28,20,0.95); backdrop-filter: blur(8px); border: 1px solid #D4B886; border-radius: 16px; padding: 12px 20px; color: #F8F2E4; font-family: '宋体', SimSun, serif; z-index: 100; box-shadow: 0 8px 20px rgba(0,0,0,0.4); pointer-events: auto; min-width: 180px; }
+
+/* 浮层 */
+.province-tip, .heritage-tip {
+  position: fixed;
+  background: rgba(40,28,20,0.95);
+  backdrop-filter: blur(8px);
+  border: 1px solid #D4B886;
+  border-radius: 16px;
+  padding: 12px 20px;
+  color: #F8F2E4;
+  font-family: '宋体', SimSun, serif;
+  z-index: 100;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+  pointer-events: auto;
+  min-width: 180px;
+}
 .tip-header { font-size: 16px; font-weight: bold; color: #FFE6B3; margin-bottom: 8px; border-bottom: 1px solid #A67C52; padding-bottom: 6px; }
 .tip-content { display: flex; flex-direction: column; gap: 6px; }
 .tip-content > div { display: flex; justify-content: space-between; }
 .tip-label { font-size: 12px; color: #E0D0B0; margin-right: 12px; }
 .tip-value { font-size: 24px; font-weight: bold; color: #F28C3C; }
 .tip-close { position: absolute; top: 6px; right: 10px; font-size: 16px; cursor: pointer; color: #C4A56C; }
+
+/* 审图号 */
 .map-attribution { position: absolute; bottom: 6px; left: 10px; background: rgba(0,0,0,0.35); padding: 2px 6px; border-radius: 10px; font-size: 8px; color: #E0D0B0; z-index: 20; backdrop-filter: blur(3px); pointer-events: none; }
+
+/* 过渡动画 */
 .legend-fade-enter-active, .legend-fade-leave-active { transition: opacity 0.2s ease, transform 0.2s ease; }
 .legend-fade-enter-from, .legend-fade-leave-to { opacity: 0; transform: translateX(-6px); }
+
+/* 紧凑微调 */
 .compact .period-left, .compact .period-right { top: 60px; }
 .compact .period-left { width: 60px; }
 .compact .period-right { width: 85px; }
 .compact .period-btn { font-size: 9px; padding: 4px 2px; }
 .compact .reset-view-btn { padding: 6px 10px; font-size: 10px; bottom: 10px; right: 10px; }
+
+/* 移动端响应式 */
 @media (max-width: 768px) {
   .period-left, .period-right { width: 70px; }
   .period-btn { font-size: 10px; }
   .compact .period-left, .compact .period-right { width: 60px; }
   .compact .period-btn { font-size: 8px; }
   .evolution-modal-content { width: 95%; height: 80%; }
-  .cluster-legend-horizontal { flex-wrap: wrap; gap: 8px; padding: 8px 12px; max-width: calc(100% - 20px); overflow-x: auto; }
+  .compact .cluster-legend-compact { max-width: calc(100% - 20px); }
+  .compact .legend-items-grid { gap: 4px 8px; grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); }
+  .compact .legend-item { font-size: 9px; }
+  .cluster-legend-expanded { max-width: 280px; }
   .cluster-selector-inline span { display: none; }
-  .cluster-selector-inline { padding: 2px 8px; }
 }
 </style>

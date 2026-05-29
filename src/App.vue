@@ -12,7 +12,7 @@
           <img src="./components/images/s5beb9247da49c.png" alt="logo" class="logo" />
           <span class="school-name">木览青数</span>
         </div>
-        <div class="header-title">中国古建筑保护单位大数据可视化分析平台</div>
+        <div class="header-title">基于加权K-Means++的古建筑遗产时空聚类与演化分析</div>
         <div class="header-right"><span class="time">{{ currentTime }}</span></div>
       </div>
       <div class="grid-container">
